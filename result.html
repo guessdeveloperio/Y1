@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoGuess Result</title>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: "CustomFont";
+      src: url("custom-font.ttf") format("truetype");
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: url("background.png") no-repeat center center fixed;
+      background-size: cover;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+    }
+
+    .total-score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 22px;
+      font-family: "CustomFont", Arial, sans-serif;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+
+    .round-image {
+      margin-top: -100px;
+      width: 300px;
+    }
+
+    .map-container {
+      position: relative;
+      width: 80%;
+      max-width: 600px;
+      height: 300px;
+      margin: 20px 0;
+      border: 3px solid white;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+
+    #result-map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .distance-info {
+      font-size: 20px;
+      text-align: center;
+      font-family: "CustomFont", Arial, sans-serif;
+      margin-bottom: 10px;
+    }
+
+    .score-info {
+      font-size: 18px;
+      text-align: center;
+      font-family: "CustomFont", Arial, sans-serif;
+      margin-bottom: 20px;
+    }
+
+    .next-round-button {
+      background: url("nextround.png") no-repeat center center;
+      background-size: cover;
+      width: 200px;
+      height: 60px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+
+    .next-round-button:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- Total Score -->
+  <div class="total-score" id="total-score">Total Score: 0 points</div>
+
+  <div class="container">
+    <!-- Round Image -->
+    <img id="round-image" src="" alt="Round Result" class="round-image">
+
+    <!-- Map Container -->
+    <div class="map-container">
+      <div id="result-map"></div>
+    </div>
+
+    <!-- Distance Info -->
+    <div class="distance-info" id="distance-info"></div>
+    <div class="score-info" id="score-info"></div>
+
+    <!-- Next Round Button -->
+    <button class="next-round-button" onclick="nextRound()"></button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBE6y6qDrWEuUBVTY_ovWkaQv4aG9u407I",
+      authDomain: "phenoguess-test.firebaseapp.com",
+      databaseURL: "https://phenoguess-test-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "phenoguess-test",
+      storageBucket: "phenoguess-test.firebasestorage.app",
+      messagingSenderId: "510781444453",
+      appId: "1:510781444453:web:3f908d155fd769cc16d18c"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    const lobbyId = localStorage.getItem("lobbyId");
+    if (!lobbyId) {
+      alert("Lobby not found. Redirecting...");
+      window.location.href = "lobbies.html";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initialize Mapbox map
+      mapboxgl.accessToken = 'pk.eyJ1IjoiZGV2ZWxvcGVybWFwc3Rlc3QiLCJhIjoiY200cmkxdDY0MDVhZDJpc2V1ZWRsbmE0eCJ9.ZeJtn0qumV8gNDXa50E2GA';
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [0, 0],
+        zoom: 2,
+        projection: 'globe'
+      });
+
+      // Load and display guesses
+      function loadGuesses() {
+        const guessesRef = ref(database, `lobbies/${lobbyId}/guesses`);
+        onValue(guessesRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const guesses = snapshot.val();
+            console.log("Loaded guesses:", guesses);
+
+            // Iterate through guesses and add markers to the map
+            for (const key in guesses) {
+              const { username, coordinates } = guesses[key];
+              if (coordinates) {
+                addMarker(coordinates, username);
+              }
+            }
+          } else {
+            console.warn("No guesses found.");
+          }
+        });
+      }
+
+      // Add a marker to the map
+      function addMarker({ lat, lng }, username) {
+        const markerElement = document.createElement('div');
+        markerElement.className = 'marker';
+        markerElement.title = username; // Tooltip with the username
+
+        new mapboxgl.Marker(markerElement)
+          .setLngLat([lng, lat])
+          .addTo(map);
+      }
+
+      // Call the function to load guesses
+      loadGuesses();
+    });
+  </script>
